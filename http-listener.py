@@ -3,6 +3,8 @@ import logging
 import logging.handlers
 import argparse
 import os
+import daemon
+import signal
 
 # Ustawienia folderu logów i pliku logowania
 LOG_DIR = 'logs'
@@ -92,6 +94,13 @@ class MyRequestHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(500, f"Internal Server Error: {e}")
             return False
 
+def run_server(port):
+    server_address = ('', port)  # Serwer nasluchuje na porcie podanym przez uzytkownika
+    httpd = http.server.HTTPServer(server_address, MyRequestHandler)
+    
+    print(f"Serwer dziala na porcie {port}...")
+    httpd.serve_forever()
+
 if __name__ == "__main__":
     # Dodanie argumentow z linii komend
     parser = argparse.ArgumentParser(description='Prosty serwer HTTP logujacy wszystkie zadania, w tym dane chunked.')
@@ -109,8 +118,12 @@ if __name__ == "__main__":
     logging.getLogger().addHandler(log_handler)
     logging.getLogger().setLevel(logging.INFO)
 
-    server_address = ('', args.port)  # Serwer nasluchuje na porcie podanym przez uzytkownika
-    httpd = http.server.HTTPServer(server_address, MyRequestHandler)
-    
-    print(f"Serwer dziala na porcie {args.port}...")
-    httpd.serve_forever()
+    # Uruchom serwer jako demona
+    with daemon.DaemonContext(
+        signal_map={
+            signal.SIGTERM: 'terminate',
+        },
+        stdout=open('/dev/null', 'w+'),
+        stderr=open('/dev/null', 'w+'),
+    ):
+        run_server(args.port)
